@@ -71,7 +71,28 @@ const tourSchema = new mongoose.Schema({
         type: mongoose.Schema.ObjectId,
         ref: "User"
     }]
+},
+{
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+}
+)
+
+tourSchema.virtual('slug').get(function(){
+   return this.name.toLowerCase().replaceAll(" ", "-");
 })
+tourSchema.pre('save', function(next){
+    this.hour = this.duration * 24;
+    next();
+})
+tourSchema.pre(/^find/, function(next){
+    this.populate({
+        path: "quides",
+        select: "-__v -password -active"
+    })
+    next();
+})
+
 const Tour = mongoose.model("Tour", tourSchema);
 
 export default Tour;

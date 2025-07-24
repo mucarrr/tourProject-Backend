@@ -1,6 +1,7 @@
 import User from "../models/userModels.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import { sendMail } from "../utils/sendMail.js";
 
 const signToken = (userId) => {
     return jwt.sign({id: userId}, process.env.JWT_SECRET, {expiresIn: process.env.JWT_EXP || "1d"});
@@ -20,6 +21,7 @@ const createSendToken = (user, code, res) => {
     res.status(code).json({message: "success", token, user});
    
 }
+
 export const protect = async(req, res, next) => {
     let token = req.cookies.jwt;
     if(!token){
@@ -55,6 +57,18 @@ export const protect = async(req, res, next) => {
     next();
 }
 
+export const restrictTo = (...roles) => {
+    return (req, res, next) => {
+        if(!roles.includes(req.user.role)){
+            return res.status(403).json({
+                success: false,
+                message: "You are not authorized to access this resource"
+            });
+        }
+        next();
+    }
+}
+
 export const register = async(req, res) => {
     try{
        const newUser = await User.create({
@@ -70,7 +84,7 @@ export const register = async(req, res) => {
             message: err.message
         });
     }
-  };
+};
 
 export const login = async(req, res) => {
     if(!req.body.email || !req.body.password){
@@ -103,3 +117,46 @@ export const login = async(req, res) => {
     createSendToken(user, 200, res);
     
 };
+
+export const logout = async(req, res) => {
+    res.clearCookie("jwt");
+    res.status(200).json({
+        success: true,
+        message: "Logged out successfully"
+    });
+}
+
+export const forgotPassword = async(req, res) => {
+    try{
+        const user = await User.findOne({ email: req.body.email});
+        console.log(user);
+        if(!user){
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
+        const resetToken = user.createPasswordResetToken();
+        await user.save({validateBeforeSave: false});
+        const resetURL = `${req.protocol}://${req.get("host")}/reset-password/${resetToken}`;
+        await sendMail(user.email, "Password reset", "Click the link to reset your password", `<h2> Hello ${user.name}</h2> <p>Forgot your password? Click the link to reset it: <a href="${resetURL}">Reset Password</a></p>`);
+        return res.status(200).json({
+            success: true,
+            message: "Email sent successfully"
+        });
+    }catch(err){
+        res.status(500).json({
+            success: false,
+            message: err.message
+        });
+    }
+}
+export const resetPassword = async(req, res) => { 
+    const user = await User.findOne({email: req.body.email});
+    if(!user){
+        return res.status(404).json({
+            success: false,
+            message: "User not found"
+        });
+    }
+}
