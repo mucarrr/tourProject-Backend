@@ -2,6 +2,7 @@ import User from "../models/userModels.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { sendMail } from "../utils/sendMail.js";
+import crypto from "crypto"; 
 
 const signToken = (userId) => {
     return jwt.sign({id: userId}, process.env.JWT_SECRET, {expiresIn: process.env.JWT_EXP || "1d"});
@@ -52,6 +53,15 @@ export const protect = async(req, res, next) => {
             success: false,
             message: "User is not active"
         });
+    }
+    if(activeUser.passwordChangedAt){
+        const passwordChangedSeconds = parseInt(activeUser.passwordChangedAt.getTime() / 1000, 10);
+        if(decoded.iat < passwordChangedSeconds){
+            return res.status(401).json({
+                success: false,
+                message: "Password changed recently, please login again"
+            });
+        }
     }
     req.user = activeUser;
     next();
@@ -138,8 +148,8 @@ export const forgotPassword = async(req, res) => {
         }
         const resetToken = user.createPasswordResetToken();
         await user.save({validateBeforeSave: false});
-        const resetURL = `${req.protocol}://${req.get("host")}/reset-password/${resetToken}`;
-        await sendMail(user.email, "Password reset", "Click the link to reset your password", `<h2> Hello ${user.name}</h2> <p>Forgot your password? Click the link to reset it: <a href="${resetURL}">Reset Password</a></p>`);
+        const resetURL = `${req.protocol}://${req.headers.host}/api/users/reset-password/${resetToken}`;
+        await sendMail(user.email, "Password reset", "Click the link to reset your password", `<h2> Hello ${user.name}</h2> <p>Forgot your password? Click the link to reset it: <a href="${resetURL}">${resetURL}</a></p>`);
         return res.status(200).json({
             success: true,
             message: "Email sent successfully"
@@ -151,12 +161,64 @@ export const forgotPassword = async(req, res) => {
         });
     }
 }
+
 export const resetPassword = async(req, res) => { 
-    const user = await User.findOne({email: req.body.email});
-    if(!user){
-        return res.status(404).json({
+    try{
+        const token = req.params.token;
+        const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+        const user = await User.findOne({
+            passwordResetToken: hashedToken,
+            passwordResetExpires: {$gt: Date.now()}
+        });
+        if(!user){
+            return res.status(400).json({
+                success: false,
+                message: "Token is invalid or has expired"  
+            });
+        }
+        user.password = req.body.password;
+        user.confirmPassword = req.body.confirmPassword;
+        user.passwordResetToken = undefined;
+        user.passwordResetExpires = undefined;
+        await user.save();
+        createSendToken(user, 200, res);
+    }catch(err){
+        res.status(500).json({
             success: false,
-            message: "User not found"
+            message: err.message
+        });
+    }
+}
+
+export const updatePassword = async(req, res) => {
+    try{
+        const user = await User.findById(req.user._id);
+        if(!user || !user.active){
+            return res.status(404).json({
+                success: false,
+                message: "User not found or inactive"
+            });
+        }
+        const isPasswordCorrect = await user.correctPassword(req.body.currentPassword, user.password);
+        if(!isPasswordCorrect){ 
+            return res.status(401).json({
+                success: false,
+                message: "Invalid password"
+            });
+        }
+        user.password = req.body.newPassword;
+        user.confirmPassword = req.body.confirmPassword;
+        await user.save();
+        await sendMail(user.email, "Password updated", "Hello " + user.name + ", Your password has been updated successfully");
+        // res.clearCookie("jwt");
+        res.status(200).json({
+            success: true,
+            message: "Password updated successfully"
+        });
+    }catch(err){
+        res.status(500).json({
+            success: false,
+            message: err.message
         });
     }
 }
