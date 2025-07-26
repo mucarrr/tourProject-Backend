@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon server.js"
+    "start": "nodemon server.js",
+    "import": "node dev-data/dev-commands.js --import",
+    "delete": "node dev-data/dev-commands.js --delete"
   },
   "author": "",
   "license": "ISC",

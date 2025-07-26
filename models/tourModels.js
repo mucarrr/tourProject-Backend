@@ -38,6 +38,10 @@ const tourSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    premium: {
+        type: Boolean,
+        default: false
+    },
     price: {
         type: Number,
         required: [true, "Price is required"]
@@ -85,6 +89,14 @@ tourSchema.pre('save', function(next){
     this.hour = this.duration * 24;
     next();
 })
+
+tourSchema.pre('aggregate', function(next){
+    this.pipeline().push({ $match: { premium: { $ne: true }}})
+    next();
+})
+
+
+
 tourSchema.pre(/^find/, function(next){
     this.populate({
         path: "quides",
