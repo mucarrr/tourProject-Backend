@@ -1,6 +1,7 @@
 import express from "express";
 import userRoutes from "./routes/userRoutes.js";
 import tourRoutes from "./routes/tourRoutes.js";
+import reviewRoutes from "./routes/reviewRoutes.js";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
@@ -20,6 +21,8 @@ app.use(cookieParser());
 
 app.use("/api/users", userRoutes);
 app.use("/api/tours", tourRoutes);
+app.use("/api/reviews", reviewRoutes);
+
 
 
 

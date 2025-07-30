@@ -47,6 +47,9 @@ export const getSingle = async (Model, req, res) => {
 }
 export const createOne = async (Model, req, res) => {
     try{
+        if(Model.modelName === "Review"){
+            req.body.user = req.user.id;
+        }
         const document = await Model.create(req.body);
         return res.status(201).json({
             success: true,
