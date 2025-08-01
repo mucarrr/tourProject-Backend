@@ -63,3 +63,70 @@ export const createOne = async (Model, req, res) => {
         });
     }
 }
+export const updateOne = async (Model, req, res) => {
+    try{
+        const document = await Model.findById(req.params.id);
+        if(!document){
+            return res.status(404).json({
+                success: false,
+                message: "Document not found"
+            });
+        }
+        
+        if(Model.modelName === "Review"){
+            if(document.user._id.toString() !== req.user.id){
+                return res.status(403).json({
+                    success: false,
+                    message: "You are not allowed to update this document"
+                });
+            } 
+        }
+        
+        const updatedDocument = await Model.findByIdAndUpdate(req.params.id, req.body, {
+            new: true,
+            runValidators: true
+        });
+        
+        return res.status(200).json({
+            success: true,
+            message: `${Model.modelName} updated successfully`,
+            data: updatedDocument
+        });
+    }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+}
+export const deleteOne = async (Model, req, res) => {
+    try{
+        const document = await Model.findById(req.params.id);
+        if(!document){
+            return res.status(404).json({
+                success: false,
+                message: "Document not found"
+            });
+        }
+        
+        if(Model.modelName === "Review"){
+            if(document.user._id.toString() !== req.user.id){
+                return res.status(403).json({
+                    success: false,
+                    message: "You are not allowed to delete this document"
+                });
+            } 
+        }
+        
+        await document.deleteOne();
+        return res.status(200).json({
+            success: true,
+            message: `${Model.modelName} deleted successfully`
+        });
+    }catch(error){
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+}
