@@ -18,6 +18,8 @@ mongoose.connect(process.env.MONGO_URL)
 });
 app.use(express.json());
 app.use(cookieParser());
+// serve static files (uploaded images)
+app.use(express.static("public"));
 
 app.use("/api/users", userRoutes);
 app.use("/api/tours", tourRoutes);
